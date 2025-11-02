@@ -154,7 +154,7 @@ setInterval(() => {
             cleanupRoom(roomId);
         }
     }
-}, 5 * 60 * 1000); // runs every 5 minutes
+}, 10 * 60 * 1000); // runs every 10 minutes
 
 // Socket.IO handling
 io.on("connection", (socket) => {
@@ -302,7 +302,7 @@ io.on("connection", (socket) => {
                         if (rooms[roomId] && rooms[roomId].clients.size === 0) {
                             cleanupRoom(roomId);
                         }
-                    }, 2 * 60 * 1000); // 2-minutes grace period for reconnect
+                    }, 5 * 60 * 1000); // 5-minutes grace period for reconnect
                 }
             }
         }
