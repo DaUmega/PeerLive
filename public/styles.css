@@ -248,6 +248,32 @@ button:hover {
     display: none;
 }
 
+.switchcam-btn {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    background: rgba(11, 151, 140, 0.9);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 1500;
+    opacity: 0.85;
+    transition: opacity 0.2s ease, background 0.2s ease;
+    width: auto;
+    max-width: 120px;
+    white-space: nowrap;
+    display: inline-block;
+    text-align: center;
+}
+.switchcam-btn:hover {
+    opacity: 1;
+    background: rgb(39, 190, 178);
+}
+
 body.stream-active #controls,
 body.stream-active h1 {
     display: none !important;

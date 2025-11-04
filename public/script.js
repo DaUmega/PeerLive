@@ -26,11 +26,12 @@ const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatToggle = document.getElementById("chatToggle");
 const chatFullscreenBtn = document.getElementById("chatFullscreenBtn");
+const exitBtn = document.getElementById("exitStreamBtn");
+let switchCameraBtn = document.getElementById("switchCameraBtn");
 
 const localWrapper = document.getElementById("localWrapper");
 const remoteWrapper = document.getElementById("remoteWrapper");
 
-let switchCameraBtn = document.getElementById("switchCameraBtn");
 let currentVideoDeviceId = null;
 let videoInputDevices = [];
 
@@ -651,12 +652,14 @@ function enableFullscreenOnClick(videoElement) {
     });
 }
 
-const exitBtn = document.getElementById("exitStreamBtn");
-
 // Function to enable livestream mode
 function enableStreamMode() {
     document.body.classList.add("stream-active");
     if (exitBtn) exitBtn.classList.remove("hidden");
+    if (switchCameraBtn && role === "host") {
+        switchCameraBtn.style.display = "block";
+        switchCameraBtn.disabled = false;
+    }
 }
 
 // Function to disable livestream mode (refresh after confirm)
