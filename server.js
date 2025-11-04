@@ -154,7 +154,7 @@ setInterval(() => {
             cleanupRoom(roomId);
         }
     }
-}, 10 * 60 * 1000); // runs every 10 minutes
+}, 6 * 60 * 60 * 1000); // runs every 6 hours
 
 // Socket.IO handling
 io.on("connection", (socket) => {
