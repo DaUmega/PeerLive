@@ -27,6 +27,7 @@ const chatSendBtn = document.getElementById("chatSendBtn");
 const chatToggle = document.getElementById("chatToggle");
 const chatFullscreenBtn = document.getElementById("chatFullscreenBtn");
 const exitBtn = document.getElementById("exitStreamBtn");
+const goBackBtn = document.getElementById("goBackBtn");
 let switchCameraBtn = document.getElementById("switchCameraBtn");
 
 const localWrapper = document.getElementById("localWrapper");
@@ -655,6 +656,7 @@ function enableFullscreenOnClick(videoElement) {
 // Function to enable livestream mode
 function enableStreamMode() {
     document.body.classList.add("stream-active");
+    if (goBackBtn) goBackBtn.style.display = "none";
     if (exitBtn) exitBtn.classList.remove("hidden");
     if (switchCameraBtn && role === "host") {
         switchCameraBtn.style.display = "block";
@@ -699,6 +701,10 @@ function setupExitButton() {
 }
 
 setupExitButton();
+
+goBackBtn.addEventListener("click", () => {
+    window.location.href = "https://daumega.github.io/";
+});
 
 enableFullscreenOnClick(localVideo);
 enableFullscreenOnClick(remoteVideo);
