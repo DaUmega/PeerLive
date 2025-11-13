@@ -144,18 +144,6 @@ function cleanupRoom(roomId) {
 	}
 }
 
-// Periodic reaper to clean up old empty rooms (with no active socket connections)
-setInterval(() => {
-    for (const [roomId, room] of Object.entries(rooms)) {
-        const hasActive = Array.from(room.clients.keys()).some(socketId =>
-            io.sockets.sockets.get && io.sockets.sockets.get(socketId)
-        );
-        if (!hasActive) {
-            cleanupRoom(roomId);
-        }
-    }
-}, 6 * 60 * 60 * 1000); // runs every 6 hours
-
 // Socket.IO handling
 io.on("connection", (socket) => {
     const ip = socket.handshake.address;
