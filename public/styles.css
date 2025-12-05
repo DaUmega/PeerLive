@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
-    background: #f8fafc;
-    color: #111827;
+    background: #121212;
+    color: #e6e9ee;
     margin: 0;
     padding: 20px;
     text-align: center;
@@ -10,6 +10,7 @@ body {
 h1 {
     font-size: 1.8rem;
     margin-bottom: 1.2rem;
+    color: #8ab4ff;
 }
 
 #controls {
@@ -21,6 +22,7 @@ h1 {
     display: block;
     margin-bottom: 10px;
     text-align: left;
+    color: #d6deea;
 }
 
 #controls input {
@@ -28,9 +30,11 @@ h1 {
     padding: 8px;
     margin-top: 4px;
     margin-bottom: 12px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #3a4a5a;
     border-radius: 6px;
     font-size: 1rem;
+    background: #11161d;
+    color: #e6e9ee;
 }
 
 button {
@@ -55,8 +59,8 @@ button:hover {
 #status {
     margin-top: 15px;
     padding: 10px;
-    background: #e0f2fe;
-    color: #075985;
+    background: #0c2033;
+    color: #7dd3fc;
     border-radius: 6px;
     font-size: 0.95rem;
     display: inline-block;
@@ -97,8 +101,7 @@ button:hover {
     justify-content: center;
 }
 
-/* make the <video> follow its intrinsic aspect ratio (width constrained, height auto)
-   and ensure very tall portrait streams don't overflow the viewport */
+/* video sizing */
 .video-wrapper video {
     width: 100%;
     height: auto;
@@ -111,10 +114,10 @@ button:hover {
     max-height: 360px;
     display: flex;
     flex-direction: column;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: #151b23;
+    border: 1px solid #2a3442;
     border-radius: 10px;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
     overflow: hidden;
 }
 
@@ -123,13 +126,13 @@ button:hover {
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: linear-gradient(180deg,#f8fafc,#ffffff);
-    border-bottom: 1px solid #e6edf3;
+    background: linear-gradient(180deg,#141a23,#151b23);
+    border-bottom: 1px solid #263241;
 }
 
 .chat-title {
     font-weight: 700;
-    color: #0f172a;
+    color: #dbe8ff;
 }
 
 .chat-toggle {
@@ -137,7 +140,7 @@ button:hover {
     border: none;
     cursor: pointer;
     font-size: 16px;
-    color: #475569;
+    color: #9aa4b2;
 }
 
 .chat-messages {
@@ -146,7 +149,7 @@ button:hover {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: #f8fafc;
+    background: #0f141b;
     flex: 1 1 auto;
 }
 
@@ -154,9 +157,9 @@ button:hover {
     max-width: 100%;
     padding: 8px 10px;
     border-radius: 8px;
-    background: #ffffff;
-    color: #0f172a;
-    border: 1px solid #e6edf3;
+    background: #151b23;
+    color: #e6e9ee;
+    border: 1px solid #263241;
     font-size: 0.9rem;
     line-height: 1.2;
     word-break: break-word;
@@ -164,7 +167,7 @@ button:hover {
 
 .chat-meta {
     font-size: 0.75rem;
-    color: #64748b;
+    color: #9aa4b2;
     margin-bottom: 4px;
 }
 
@@ -174,8 +177,8 @@ button:hover {
     justify-content: space-between;
     gap: 8px;
     padding: 10px;
-    border-top: 1px solid #e6edf3;
-    background: #fff;
+    border-top: 1px solid #263241;
+    background: #151b23;
     flex-shrink: 0;
     position: sticky;
     bottom: 0;
@@ -188,11 +191,13 @@ button:hover {
     flex: 1 1 auto;
     min-width: 0;
     padding: 10px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #3a4a5a;
     border-radius: 8px;
     font-size: 0.95rem;
     outline: none;
     box-sizing: border-box;
+    background: #11161d;
+    color: #e6e9ee;
 }
 
 .chat-send {
@@ -293,8 +298,8 @@ body.stream-active {
 	border: none;
 	border-radius: 8px;
 	cursor: pointer;
-	margin: 20px auto 40px; /* space above and below */
-	display: block; /* center it */
+	margin: 20px auto 40px;
+	display: block;
 	transition: background 0.2s ease, transform 0.1s ease;
 }
 
@@ -303,7 +308,7 @@ body.stream-active {
 	transform: scale(1.03);
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 768px) {
     .app-grid {
         flex-direction: column;
         align-items: center;
@@ -338,23 +343,22 @@ body.stream-active {
     }
 }
 
-/* keep portrait rule but ensure it stacks reliably */
 @media (orientation: portrait) {
     .app-grid {
         flex-direction: column;
-        gap: 8px; /* tighten vertical gap in portrait */
+        gap: 8px;
     }
 
     .chat-panel {
         width: calc(100% - 24px);
-        max-height: 70vh; /* Limit height to 70% of viewport height */
-        margin: 0; /* sit directly under the video */
+        max-height: 70vh;
+        margin: 0;
     }
 
     .video-container {
         width: 100%;
         margin: 0;
-        flex: 0 0 auto; /* don't allow shrinking so height stays correct */
+        flex: 0 0 auto;
     }
 
     .video-wrapper {
@@ -367,12 +371,11 @@ body.stream-active {
     .video-wrapper video {
         width: 100%;
         height: auto;
-        max-height: 75vh; /* allow portrait streams to be tall but bounded */
+        max-height: 75vh;
         object-fit: contain;
     }
 }
 
-/* fallback fullscreen styling for chat panel (used when Fullscreen API is not available) */
 .chat-panel.fullscreen {
     position: fixed;
     top: 0;
@@ -382,10 +385,9 @@ body.stream-active {
     z-index: 1100;
     border-radius: 0;
     box-shadow: none;
-    background: #ffffff;
+    background: #0f1116;
 }
 
-/* when chat is fullscreen we hide video and controls to focus on chat only */
 body.chat-fullscreen-active .video-container,
 body.chat-fullscreen-active #controls {
     display: none;
@@ -398,6 +400,6 @@ body.chat-fullscreen-active #controls {
     width: 100%;
     height: 100%;
     z-index: 1000;
-    background: #ffffff;
+    background: #0f1116;
     box-shadow: none;
 }
