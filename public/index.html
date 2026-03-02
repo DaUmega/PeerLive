@@ -26,6 +26,7 @@
             <input type="text" id="displayName" placeholder="Optional: display name (max 32 chars)">
         </label>
 
+
         <button id="createBtn">Create Room</button>
         <button id="joinBtn">Join Room</button>
         <button id="startCameraBtn" style="display:none;">Start Camera</button>
@@ -49,6 +50,17 @@
                 <div class="chat-title">Chat Room</div>
                 <button id="chatToggle" class="chat-toggle" aria-label="Toggle chat">─</button>
                 <button id="chatFullscreenBtn" class="chat-fullscreen" aria-label="Maximize chat">⛶</button>
+            </div>
+
+            <!-- file sharing controls are shown when connected -->
+            <div id="chatFileShare" class="chat-file-share" style="display:none;">
+                <div class="chat-file-controls">
+                    <input type="file" id="fileInput">
+                    <button id="uploadBtn" disabled>⬆️</button>
+                </div>
+                <div id="sharedFiles" class="shared-files">
+                    <div id="sharedFilesHeader" class="shared-files-header" style="display:none;">Shared files:</div>
+                </div>
             </div>
 
             <div id="chatMessages" class="chat-messages" role="log"></div>

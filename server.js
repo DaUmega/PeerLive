@@ -4,6 +4,11 @@ const http = require("http");
 const { Server } = require("socket.io");
 const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const multer = require("multer");
+
+// multer with memory storage for temporary files
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app = express();
 const server = http.createServer(app);
@@ -11,6 +16,9 @@ const io = new Server(server);
 
 // In-memory store for rooms
 const rooms = {};
+// In-memory store for shared files
+// fileId -> { roomId, name, buffer, timeout }
+const files = new Map();
 const MAX_CONNECTIONS_PER_IP = 5; // Prevent DDoS: max clients per IP per room
 const SALT_ROUNDS = 10; // bcrypt cost factor
 
@@ -95,6 +103,48 @@ app.use(express.json());
 // Serve static files (index.html, etc.)
 app.use(express.static("public"));
 
+// Endpoint for uploading a file to a room (multipart/form-data field 'file')
+// The file is stored in memory and expires 30 minutes after upload.
+app.post("/upload/:roomId", async (req, res, next) => {
+    const { roomId } = req.params;
+    if (!rooms[roomId]) {
+        return res.status(404).json({ error: "Room not found" });
+    }
+    // use multer to parse form-data
+    upload.single('file')(req, res, (err) => {
+        if (err) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(413).json({ error: 'File too large' });
+            }
+            return res.status(500).json({ error: 'Upload error' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'Missing file' });
+        }
+        const id = crypto.randomBytes(8).toString('hex');
+        const timeout = setTimeout(() => cleanupFile(id), 30 * 60 * 1000); // 30 minutes
+        files.set(id, { roomId, name: req.file.originalname, buffer: req.file.buffer, timeout });
+        // notify room members
+        io.to(roomId).emit('file-shared', { fileId: id, name: req.file.originalname, size: req.file.size });
+        res.json({ success: true, fileId: id });
+    });
+});
+
+// Download endpoint for files
+app.get('/download/:fileId', (req, res) => {
+    const { fileId } = req.params;
+    const info = files.get(fileId);
+    if (!info) {
+        return res.status(404).send('File not found or expired');
+    }
+    const roomUrl = req.get('Referer') || '';
+    // We won't enforce room membership on HTTP request, since client could request directly.
+    // Additional checks (e.g. token) could be added if desired.
+    res.setHeader('Content-Disposition', `attachment; filename="${info.name.replace(/"/g,'') }"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.send(info.buffer);
+});
+
 // Endpoint for creating a room
 app.post("/create/:roomId", createLimiter, async (req, res) => {
     const { roomId } = req.params;
@@ -142,8 +192,23 @@ function cleanupRoom(roomId) {
 		delete rooms[roomId];
 		console.log(`Room ${roomId} cleaned up`);
 	}
+	// also purge any files associated with this room
+	for (const [id, info] of files.entries()) {
+		if (info.roomId === roomId) {
+			cleanupFile(id);
+		}
+	}
 }
 
+// Cleanup helper for files
+function cleanupFile(fileId) {
+	const info = files.get(fileId);
+	if (info) {
+		clearTimeout(info.timeout);
+		files.delete(fileId);
+		console.log(`File ${fileId} removed (expired)`);
+	}
+}
 // Socket.IO handling
 io.on("connection", (socket) => {
     const ip = socket.handshake.address;

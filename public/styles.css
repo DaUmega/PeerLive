@@ -37,6 +37,67 @@ h1 {
     color: #e6e9ee;
 }
 
+.shared-files {
+    margin-top: 8px;
+    text-align: left;
+    max-height: 120px;
+    overflow-y: auto;
+    background: #11161d;
+    border: 1px solid #3a4a5a;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+.shared-files-header {
+    font-weight: bold;
+    margin-bottom: 4px;
+    color: #8ab4ff;
+    font-size: 0.9rem;
+}
+.shared-file a {
+    color: #8ab4ff;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.shared-file a:hover {
+    text-decoration: underline;
+}
+
+.chat-file-share {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin: 0 12px 8px 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid #263241;
+}
+
+.chat-file-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.chat-file-controls input[type=file] {
+    flex: 1 1 auto;
+}
+
+.chat-file-controls button {
+    flex-shrink: 0;
+}
+
+#fileInput {
+    max-width: 200px;
+}
+
+#uploadBtn {
+    max-width: 60px;
+    width: 100%;
+}
+
 button {
     display: block;
     width: 100%;
@@ -111,7 +172,7 @@ button:hover {
 
 .chat-panel {
     width: 300px;
-    max-height: 360px;
+    max-height: 450px;
     display: flex;
     flex-direction: column;
     background: #151b23;
@@ -324,7 +385,7 @@ body.stream-active {
 
     .chat-panel {
         width: calc(100% - 24px);
-        max-height: 360px;
+        max-height: 330px;
         margin: 0;
     }
 

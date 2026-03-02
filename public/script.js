@@ -30,6 +30,12 @@ const exitBtn = document.getElementById("exitStreamBtn");
 const goBackBtn = document.getElementById("goBackBtn");
 let switchCameraBtn = document.getElementById("switchCameraBtn");
 
+// file sharing elements (moved into chat panel)
+const fileInput = document.getElementById("fileInput");
+const uploadBtn = document.getElementById("uploadBtn");
+const sharedFilesDiv = document.getElementById("sharedFiles");
+const chatFileShare = document.getElementById("chatFileShare");
+
 const localWrapper = document.getElementById("localWrapper");
 const remoteWrapper = document.getElementById("remoteWrapper");
 
@@ -277,6 +283,44 @@ if (switchCameraBtn) {
     });
 }
 
+// file input behaviour
+if (fileInput) {
+    fileInput.addEventListener('change', () => {
+        uploadBtn.disabled = !fileInput.files.length;
+    });
+}
+if (uploadBtn) {
+    uploadBtn.addEventListener('click', async () => {
+        if (!roomId) {
+            alert('You must be in a room to upload');
+            return;
+        }
+        const file = fileInput.files[0];
+        if (!file) return;
+        uploadBtn.disabled = true;
+        try {
+            const form = new FormData();
+            form.append('file', file);
+            const res = await fetch(`/upload/${encodeURIComponent(roomId)}`, {
+                method: 'POST',
+                body: form
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.fileId) {
+                alert('Upload failed: ' + (data.error || res.status));
+            } else {
+                // the server will notify everyone including us via socket event
+            }
+        } catch (e) {
+            alert('Upload error: ' + e.message);
+        } finally {
+            uploadBtn.disabled = false;
+            fileInput.value = '';
+            uploadBtn.disabled = true;
+        }
+    });
+}
+
 function connectToRoom(roomId, password) {
     if (socket) {
         try {
@@ -313,6 +357,7 @@ function connectToRoom(roomId, password) {
                 if (chatPanel) chatPanel.style.display = "";
                 if (chatInput) chatInput.disabled = false;
                 if (chatSendBtn) chatSendBtn.disabled = false;
+                if (chatFileShare) chatFileShare.style.display = "block"; // show file controls
             } else {
                 statusEl.textContent = "Error: " + (res?.error || "Join failed");
                 authFailed = true;
@@ -391,6 +436,10 @@ function setupSocketHandlers() {
 
     socket.on("chat", (payload) => {
         appendChatMessage(payload);
+    });
+
+    socket.on("file-shared", ({ fileId, name, size } = {}) => {
+        addSharedFile(fileId, name, size);
     });
 
     socket.on("peer-joined", async (peerId) => {
@@ -497,6 +546,24 @@ function appendChatMessage({ from, name, message, time } = {}) {
     item.appendChild(text);
     chatMessages.appendChild(item);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// helper to display a newly shared file link
+function addSharedFile(fileId, name, size) {
+    if (!sharedFilesDiv) return;
+    const header = document.getElementById('sharedFilesHeader');
+    if (header && header.style.display === 'none') {
+        header.style.display = 'block';
+    }
+    const entry = document.createElement('div');
+    entry.className = 'shared-file';
+    const link = document.createElement('a');
+    link.href = `/download/${encodeURIComponent(fileId)}`;
+    link.textContent = `${name} (${(size/1024).toFixed(1)} KB)`;
+    link.target = '_blank';
+    entry.appendChild(link);
+    sharedFilesDiv.appendChild(entry);
+    sharedFilesDiv.scrollTop = sharedFilesDiv.scrollHeight;
 }
 
 function sendChatMessage() {
@@ -642,6 +709,14 @@ function cleanupAndResetUI() {
     if (chatPanel) {
         chatPanel.classList.remove("collapsed");
         chatPanel.style.display = "none";
+    }
+    if (chatFileShare) {
+        chatFileShare.style.display = "none";
+    }
+    if (sharedFilesDiv) {
+        sharedFilesDiv.innerHTML = "";
+        const header = document.getElementById('sharedFilesHeader');
+        if (header) header.style.display = 'none';
     }
 }
 
