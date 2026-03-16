@@ -3,76 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <title>PeerLive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<button id="exitStreamBtn" class="exit-btn hidden">Exit</button>
-<button id="switchCameraBtn" class="switchcam-btn" style="display:none;">📸🔁</button>
 <body>
-    <h1>PeerLive</h1>
+    <button id="exitStreamBtn" class="exit-btn hidden">Exit</button>
+    <button id="switchCameraBtn" class="switchcam-btn" style="display:none;">Switch</button>
+    
+    <div id="welcomeView" class="view">
+        <header>
+            <h1>PeerLive</h1>
+            <p class="tagline">Encrypted peer-to-peer streaming</p>
+        </header>
 
-    <div id="controls">
-        <label>
-            Room ID:
-            <input type="text" id="roomId" placeholder="Enter room ID">
-        </label>
-        <label>
-            Password:
-            <input type="password" id="password" placeholder="Enter password">
-        </label>
-
-        <label>
-            Display name:
-            <input type="text" id="displayName" placeholder="Optional: display name (max 32 chars)">
-        </label>
-
-
-        <button id="createBtn">Create Room</button>
-        <button id="joinBtn">Join Room</button>
-        <button id="startCameraBtn" style="display:none;">Start Camera</button>
-        <button id="copyUrlBtn" style="display:none;">Copy Room URL</button>
-
-        <div id="status">Idle</div>
-    </div>
-
-    <div class="app-grid">
-        <div class="video-container">
-            <div id="localWrapper" class="video-wrapper hidden" aria-label="Local video wrapper">
-                 <video id="localVideo" autoplay muted playsinline></video>
+        <div class="modal">
+            <div class="form-group">
+                <label for="roomId">Room ID</label>
+                <input type="text" id="roomId" placeholder="Enter room ID">
             </div>
-            <div id="remoteWrapper" class="video-wrapper hidden" aria-label="Remote video wrapper">
-                 <video id="remoteVideo" autoplay playsinline></video>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password">
             </div>
+
+            <div class="form-group">
+                <label for="displayName">Display Name (optional)</label>
+                <input type="text" id="displayName" placeholder="Your name" maxlength="32">
+            </div>
+
+            <div class="btn-group">
+                <button id="createBtn" class="btn">Create Room</button>
+                <button id="joinBtn" class="btn">Join Room</button>
+            </div>
+
+            <button id="startCameraBtn" class="btn btn-accent" style="display:none;">Start Camera</button>
+            <button id="copyUrlBtn" class="btn btn-accent" style="display:none;">Copy Room URL</button>
+
+            <div id="status" class="status"></div>
         </div>
 
-        <aside id="chatPanel" class="chat-panel" aria-live="polite">
-            <div class="chat-header">
-                <div class="chat-title">Chat Room</div>
-                <button id="chatToggle" class="chat-toggle" aria-label="Toggle chat">─</button>
-                <button id="chatFullscreenBtn" class="chat-fullscreen" aria-label="Maximize chat">⛶</button>
-            </div>
-
-            <!-- file sharing controls are shown when connected -->
-            <div id="chatFileShare" class="chat-file-share" style="display:none;">
-                <div class="chat-file-controls">
-                    <input type="file" id="fileInput">
-                    <button id="uploadBtn" disabled>⬆️</button>
-                </div>
-                <div id="sharedFiles" class="shared-files">
-                    <div id="sharedFilesHeader" class="shared-files-header" style="display:none;">Shared files:</div>
-                </div>
-            </div>
-
-            <div id="chatMessages" class="chat-messages" role="log"></div>
-
-            <div class="chat-input-row">
-                <input id="chatInput" class="chat-input" type="text" placeholder="Type a message and press Enter" maxlength="500" />
-                <button id="chatSendBtn" class="chat-send">Send</button>
-            </div>
-        </aside>
+        <button id="goBackBtn" class="btn-back">← Back</button>
     </div>
 
-    <button id="goBackBtn">← Go Back</button>
+    <div id="streamView" class="view hidden">
+        <div class="stream-layout">
+            <div class="video-section">
+                <div class="video-stack">
+                    <div id="remoteWrapper" class="video-wrapper">
+                        <video id="remoteVideo" autoplay playsinline></video>
+                    </div>
+                    <div id="localWrapper" class="video-wrapper pip">
+                        <video id="localVideo" autoplay muted playsinline></video>
+                    </div>
+                </div>
+            </div>
+
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Chat</h2>
+                </div>
+
+                <div id="chatMessages" class="chat-messages" role="log"></div>
+
+                <div id="chatFileShare" class="file-share" style="display:none;">
+                    <input type="file" id="fileInput">
+                    <button id="uploadBtn" disabled>Upload</button>
+                    <div id="sharedFiles" class="shared-files"></div>
+                </div>
+
+                <div class="chat-input-area">
+                    <input id="chatInput" class="chat-input" type="text" placeholder="Type a message..." maxlength="500">
+                    <button id="chatSendBtn" class="btn-send">Send</button>
+                </div>
+            </aside>
+        </div>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
