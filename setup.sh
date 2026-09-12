@@ -71,6 +71,12 @@ sudo bash -c "cat > $APACHE_CONF" <<EOL
     ServerName $DOMAIN
 
     ProxyPreserveHost On
+
+    # Route WebSocket upgrade requests (Socket.IO) separately so real-time video/chat signaling works
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule /(.*) ws://127.0.0.1:8080/\$1 [P,L]
+
     ProxyPass / http://127.0.0.1:8080/
     ProxyPassReverse / http://127.0.0.1:8080/
 
@@ -79,8 +85,8 @@ sudo bash -c "cat > $APACHE_CONF" <<EOL
 </VirtualHost>
 EOL
 
-# Ensure proxy modules are enabled
-sudo a2enmod proxy proxy_http
+# Ensure proxy + websocket + rewrite modules are enabled
+sudo a2enmod proxy proxy_http proxy_wstunnel rewrite
 sudo systemctl reload apache2
 sudo systemctl restart apache2
 

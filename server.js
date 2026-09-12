@@ -11,6 +11,8 @@ const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 const app = express();
+// Only trust X-Forwarded-For when the request itself arrives from loopback (our own reverse proxy).
+app.set("trust proxy", "loopback");
 const server = http.createServer(app);
 const io = new Server(server);
 
@@ -231,9 +233,20 @@ function cleanupFile(fileId) {
 		console.log(`File ${fileId} removed (expired)`);
 	}
 }
+
+// Engine.IO doesn't share Express's "trust proxy" setting, so resolve the real client IP
+// ourselves: only trust X-Forwarded-For when the socket itself connected from loopback.
+function resolveClientIp(req) {
+    const remote = req.socket.remoteAddress;
+    const isLoopback = remote === "127.0.0.1" || remote === "::1" || remote === "::ffff:127.0.0.1";
+    const xff = req.headers["x-forwarded-for"];
+    if (isLoopback && xff) return xff.split(",")[0].trim();
+    return remote;
+}
+
 // Socket.IO handling
 io.on("connection", (socket) => {
-    const ip = socket.handshake.address;
+    const ip = resolveClientIp(socket.request);
     console.log(`New client connected from ${ip}`);
 
     // per-socket chat timestamps for simple rate limiting
