@@ -43,22 +43,6 @@ function sendServerError(socket, ack, message, disconnect = false) {
     if (disconnect) socket.disconnect(true);
 }
 
-function escapeHtml(str) {
-    // minimal but effective escaping of characters that can break HTML/JS contexts
-    return str.replace(/[&<>"'`\/]/g, (s) => {
-        switch (s) {
-            case "&": return "&amp;";
-            case "<": return "&lt;";
-            case ">": return "&gt;";
-            case '"': return "&quot;";
-            case "'": return "&#39;";
-            case "`": return "&#96;";
-            case "/": return "&#x2F;";
-            default: return s;
-        }
-    });
-}
-
 function sanitizeMessage(input) {
     if (typeof input !== "string") return "";
     // normalize newlines, trim leading/trailing whitespace
@@ -72,9 +56,7 @@ function sanitizeMessage(input) {
         msg = msg.slice(0, MAX_CHAT_LENGTH);
     }
 
-    // finally escape HTML-sensitive characters
-    msg = escapeHtml(msg);
-
+    // Note: not HTML-escaped here; the client renders messages via textContent, not innerHTML.
     return msg;
 }
 
@@ -84,7 +66,6 @@ function sanitizeName(input) {
     // remove control characters
     name = name.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/g, "");
     if (name.length > MAX_NAME_LENGTH) name = name.slice(0, MAX_NAME_LENGTH);
-    name = escapeHtml(name);
     return name;
 }
 

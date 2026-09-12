@@ -3,7 +3,6 @@
 const $ = (id) => document.getElementById(id);
 const peers = new Map();
 const announcedStreams = new Map();
-const sharedFileIds = new Set();
 const rtcConfig = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -314,7 +313,6 @@ function connect() {
   socket.on("chat", ({ name, message, time }) => addMessage(name || "Guest", message, time));
   socket.on("file-shared", ({ fileId, name, size }) => {
     if (typeof fileId !== "string" || typeof name !== "string" || !Number.isFinite(size)) return;
-    if (sharedFileIds.has(fileId)) return; // already shown locally when we uploaded it
     addFileMessage(fileId, name, size);
   });
   socket.on("disconnect", (reason) => { if (!joining && reason !== "io client disconnect" && roomId) status("Disconnected from the room server."); });
@@ -387,8 +385,6 @@ async function shareFile(file) {
     const response = await fetch(`/upload/${encodeURIComponent(roomId)}`, { method: "POST", body: form });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Upload failed.");
-    sharedFileIds.add(result.fileId);
-    addFileMessage(result.fileId, result.name ?? file.name, result.size ?? file.size);
     status("File shared. It expires in 30 minutes.");
   } catch (error) {
     status(error.message);
@@ -400,7 +396,6 @@ function resetRoom() {
   socket?.disconnect();
   socket = undefined;
   announcedStreams.clear();
-  sharedFileIds.clear();
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = undefined;
   localVideo?.remove();
