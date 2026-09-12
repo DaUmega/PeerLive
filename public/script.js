@@ -372,7 +372,7 @@ async function toggleCamera() {
     peers.forEach(({ pc }) => localStream.getTracks().forEach((track) => pc.addTrack(track, localStream)));
     socket.emit("stream-event", { roomId, type: "stream-start", streamId: localStream.id });
     $("cameraBtn").textContent = "Disable camera";
-    status("Camera enabled. Everyone can choose whether to watch.");
+    status("Camera enabled (does NOT work on mobile data). Everyone can choose whether to watch.");
   } catch (error) {
     localStream = undefined;
     status(`Camera unavailable: ${error.message}`);

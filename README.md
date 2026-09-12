@@ -6,7 +6,7 @@ P2P Chat is a **peer-to-peer, password-protected room app** for browser-to-brows
 
 ## Features
 
-- **P2P live streaming**: Connect directly between devices without uploading video to a central server.  
+- **P2P live streaming**: Connect directly between devices without uploading video to a central server. (Does not work on mobile data)
 - **Encrypted communication**: Password(hashed)-protected rooms with end-to-end security.  
 - **Real-time chat**: Built-in chat system for hosts and viewers to communicate during streams.  
 - **Custom display names**: Users can set personalized names in chat rooms for better interaction.  
