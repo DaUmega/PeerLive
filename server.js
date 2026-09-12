@@ -29,6 +29,11 @@ const MAX_NAME_LENGTH = 32; // max characters for display name
 const CHAT_RATE_WINDOW_MS = 10 * 1000; // 10s
 const CHAT_MAX_PER_WINDOW = 10; // max messages per window
 
+function emitRoomPresence(roomId) {
+    const room = rooms[roomId];
+    if (room) io.to(roomId).emit("room-presence", { count: room.clients.size });
+}
+
 function escapeHtml(str) {
     // minimal but effective escaping of characters that can break HTML/JS contexts
     return str.replace(/[&<>"'`\/]/g, (s) => {
@@ -269,14 +274,17 @@ io.on("connection", (socket) => {
             return;
         }
 
-        // Register client
+        // Register client and let both sides establish a direct WebRTC connection.
+        const existingPeerIds = Array.from(room.clients.keys());
         room.clients.set(socket.id, ip);
         // store sanitized display name (fallback to socket id truncated)
         const sname = sanitizeName(displayName) || socket.id;
         room.names.set(socket.id, sname);
 
         socket.join(roomId);
+        existingPeerIds.forEach((peerId) => socket.emit("peer-joined", peerId));
         socket.to(roomId).emit("peer-joined", socket.id);
+        emitRoomPresence(roomId);
 
         for (const [streamId, stream] of room.streams) {
             socket.emit("stream-event", { from: stream.socketId, name: stream.name, streamId, type: "stream-start" });
@@ -378,6 +386,7 @@ io.on("connection", (socket) => {
                     }
                 }
                 socket.to(roomId).emit("peer-left", socket.id);
+                emitRoomPresence(roomId);
                 if (rooms[roomId].clients.size === 0) {
                     setTimeout(() => {
                         if (rooms[roomId] && rooms[roomId].clients.size === 0) {

@@ -18,6 +18,7 @@ let localStream;
 let localVideo;
 let joining = false;
 let confirmation;
+let roomMemberCount = 0;
 
 const status = (text) => { $("status").textContent = text; };
 const displayName = () => $("displayName").value.trim() || (owner ? "Room owner" : "Guest");
@@ -50,8 +51,8 @@ function addNotice(text) {
 }
 
 function updatePeerCount() {
-  const count = peers.size;
-  $("peers").textContent = `${count} guest${count === 1 ? "" : "s"} connected`;
+  const guests = Math.max(0, roomMemberCount - 1);
+  $("peers").textContent = `${guests} guest${guests === 1 ? "" : "s"} connected`;
 }
 
 function addVideo(stream, label, muted) {
@@ -149,6 +150,7 @@ function createPeer(peerId) {
     streams: new Map(),
     names: new Map(announcedStreams.get(peerId)),
     makingOffer: false,
+    needsNegotiation: false,
     ignoreOffer: false,
     settingRemoteAnswer: false,
     polite: socket.id > peerId
@@ -160,16 +162,9 @@ function createPeer(peerId) {
   pc.onicecandidate = ({ candidate }) => {
     if (candidate) socket?.emit("signal", { roomId, target: peerId, data: { candidate } });
   };
-  pc.onnegotiationneeded = async () => {
-    try {
-      peer.makingOffer = true;
-      await pc.setLocalDescription(await pc.createOffer());
-      socket?.emit("signal", { roomId, target: peerId, data: { sdp: pc.localDescription } });
-    } catch {
-      status("Could not update the peer connection.");
-    } finally {
-      peer.makingOffer = false;
-    }
+  pc.onnegotiationneeded = () => negotiate(peerId, peer);
+  pc.onsignalingstatechange = () => {
+    if (pc.signalingState === "stable" && peer.needsNegotiation) negotiate(peerId, peer);
   };
   pc.ontrack = ({ streams, track }) => {
     const stream = streams[0] || new MediaStream([track]);
@@ -179,6 +174,27 @@ function createPeer(peerId) {
     if (["failed", "closed"].includes(pc.connectionState)) removePeer(peerId);
   };
   return peer;
+}
+
+async function negotiate(peerId, peer) {
+  const { pc } = peer;
+  if (peer.makingOffer || pc.signalingState !== "stable") {
+    peer.needsNegotiation = true;
+    return;
+  }
+  peer.needsNegotiation = false;
+  peer.makingOffer = true;
+  try {
+    await pc.setLocalDescription(await pc.createOffer());
+    socket.emit("signal", { roomId, target: peerId, data: { sdp: pc.localDescription } });
+  } finally {
+    peer.makingOffer = false;
+  }
+}
+
+async function offerPeer(peerId) {
+  const peer = peers.get(peerId) || createPeer(peerId);
+  await negotiate(peerId, peer);
 }
 
 async function handleSignal({ from, data }) {
@@ -203,6 +219,7 @@ async function handleSignal({ from, data }) {
       await pc.setLocalDescription(await pc.createAnswer());
       socket.emit("signal", { roomId, target: from, data: { sdp: pc.localDescription } });
     }
+    if (pc.signalingState === "stable" && peer.needsNegotiation) await negotiate(from, peer);
   } else if (data.candidate) {
     if (peer.ignoreOffer) return;
     if (pc.remoteDescription) await pc.addIceCandidate(data.candidate);
@@ -254,8 +271,9 @@ function connect() {
   });
   socket.on("connect_error", () => failJoin("Could not reach the room server. Check your connection and try again."));
   socket.on("server-error", (text) => joining ? failJoin(`Could not join: ${text}`) : status(`Error: ${text}`));
-  socket.on("peer-joined", (peerId) => { if (!peers.has(peerId)) createPeer(peerId); });
+  socket.on("peer-joined", (peerId) => offerPeer(peerId).catch(() => status("Could not connect to a guest.")));
   socket.on("peer-left", removePeer);
+  socket.on("room-presence", ({ count }) => { roomMemberCount = count; updatePeerCount(); });
   socket.on("signal", (signal) => handleSignal(signal).catch(() => status("Could not update the peer connection.")));
   socket.on("stream-event", handleStreamEvent);
   socket.on("chat", ({ name, message, time }) => addMessage(name || "Guest", message, time));
@@ -355,6 +373,7 @@ function resetRoom() {
   localVideo = undefined;
   roomId = password = undefined;
   owner = false;
+  roomMemberCount = 0;
   setJoining(false);
   $("messages").replaceChildren();
   $("videos").replaceChildren();
