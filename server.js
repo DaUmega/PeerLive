@@ -19,19 +19,26 @@ const rooms = {};
 // In-memory store for shared files
 // fileId -> { roomId, name, buffer, timeout }
 const files = new Map();
-const MAX_CONNECTIONS_PER_IP = 5; // Prevent DDoS: max clients per IP per room
+const MAX_CONNECTIONS_PER_IP = 10; // Prevent DDoS: max clients per IP per room
 const SALT_ROUNDS = 10; // bcrypt cost factor
 
 // Chat configuration and sanitization utilities
-const MAX_CHAT_LENGTH = 500; // max characters per chat message
+const MAX_CHAT_LENGTH = 1024; // max characters per chat message
 const MAX_NAME_LENGTH = 32; // max characters for display name
 // Basic per-socket message rate limiting (sliding window)
-const CHAT_RATE_WINDOW_MS = 10 * 1000; // 10s
-const CHAT_MAX_PER_WINDOW = 10; // max messages per window
+const CHAT_RATE_WINDOW_MS = 2 * 1000; // 2s
+const CHAT_MAX_PER_WINDOW = 100; // max messages per window
 
 function emitRoomPresence(roomId) {
     const room = rooms[roomId];
     if (room) io.to(roomId).emit("room-presence", { count: room.clients.size });
+}
+
+// Sends an ack (if provided) and a "server-error" event, optionally disconnecting the socket.
+function sendServerError(socket, ack, message, disconnect = false) {
+    if (ack) ack({ ok: false, error: message });
+    socket.emit("server-error", message);
+    if (disconnect) socket.disconnect(true);
 }
 
 function escapeHtml(str) {
@@ -77,6 +84,15 @@ function sanitizeName(input) {
     if (name.length > MAX_NAME_LENGTH) name = name.slice(0, MAX_NAME_LENGTH);
     name = escapeHtml(name);
     return name;
+}
+
+const MAX_FILENAME_LENGTH = 255;
+function sanitizeFileName(input) {
+    if (typeof input !== "string") return "file";
+    // strip control/newline characters to prevent header injection via Content-Disposition
+    let name = input.replace(/[\x00-\x1F\x7F]+/g, "").trim();
+    if (name.length > MAX_FILENAME_LENGTH) name = name.slice(0, MAX_FILENAME_LENGTH);
+    return name || "file";
 }
 
 // Global rate limiter: max 20 requests per IP per minute
@@ -127,11 +143,12 @@ app.post("/upload/:roomId", async (req, res, next) => {
             return res.status(400).json({ error: 'Missing file' });
         }
         const id = crypto.randomBytes(8).toString('hex');
+        const name = sanitizeFileName(req.file.originalname);
         const timeout = setTimeout(() => cleanupFile(id), 30 * 60 * 1000); // 30 minutes
-        files.set(id, { roomId, name: req.file.originalname, buffer: req.file.buffer, timeout });
+        files.set(id, { roomId, name, buffer: req.file.buffer, timeout });
         // notify room members
-        io.to(roomId).emit('file-shared', { fileId: id, name: req.file.originalname, size: req.file.size });
-        res.json({ success: true, fileId: id });
+        io.to(roomId).emit('file-shared', { fileId: id, name, size: req.file.size });
+        res.json({ success: true, fileId: id, name, size: req.file.size });
     });
 });
 
@@ -142,7 +159,6 @@ app.get('/download/:fileId', (req, res) => {
     if (!info) {
         return res.status(404).send('File not found or expired');
     }
-    const roomUrl = req.get('Referer') || '';
     // We won't enforce room membership on HTTP request, since client could request directly.
     // Additional checks (e.g. token) could be added if desired.
     res.setHeader('Content-Disposition', `attachment; filename="${info.name.replace(/"/g,'') }"`);
@@ -228,12 +244,7 @@ io.on("connection", (socket) => {
         const ack = typeof callback === "function" ? callback : null;
 
         const room = rooms[roomId];
-        if (!room) {
-            const errMsg = "Invalid room/password";
-            if (ack) ack({ ok: false, error: errMsg });
-            socket.emit("server-error", errMsg);
-            return;
-        }
+        if (!room) return sendServerError(socket, ack, "Invalid room/password");
 
         // Prevent duplicate joins
         if (room.clients.has(socket.id)) {
@@ -245,21 +256,10 @@ io.on("connection", (socket) => {
 
         try {
             const valid = await bcrypt.compare(password, room.passwordHash);
-            if (!valid) {
-                const errMsg = "Invalid room/password";
-                if (ack) ack({ ok: false, error: errMsg });
-                socket.emit("server-error", errMsg);
-                // disconnect after sending ack/event
-                socket.disconnect(true);
-                return;
-            }
+            if (!valid) return sendServerError(socket, ack, "Invalid room/password", true);
         } catch (err) {
             console.error("Password check failed:", err);
-            const errMsg = "Internal error";
-            if (ack) ack({ ok: false, error: errMsg });
-            socket.emit("server-error", errMsg);
-            socket.disconnect(true);
-            return;
+            return sendServerError(socket, ack, "Internal error", true);
         }
 
         // Enforce per-IP connection limit
@@ -267,11 +267,7 @@ io.on("connection", (socket) => {
             .filter(addr => addr === ip).length;
 
         if (ipCount >= MAX_CONNECTIONS_PER_IP) {
-            const errMsg = "Too many connections from your IP in this room";
-            if (ack) ack({ ok: false, error: errMsg });
-            socket.emit("server-error", errMsg);
-            socket.disconnect(true);
-            return;
+            return sendServerError(socket, ack, "Too many connections from your IP in this room", true);
         }
 
         // Register the client. Existing members initiate connections to newcomers.
@@ -324,12 +320,7 @@ io.on("connection", (socket) => {
         const ack = typeof callback === "function" ? callback : null;
         const room = rooms[roomId];
 
-        if (!room || !room.clients.has(socket.id)) {
-            const err = "Not in room";
-            if (ack) ack({ ok: false, error: err });
-            socket.emit("server-error", err);
-            return;
-        }
+        if (!room || !room.clients.has(socket.id)) return sendServerError(socket, ack, "Not in room");
 
         // basic per-socket rate limiting
         const now = Date.now();
@@ -339,10 +330,7 @@ io.on("connection", (socket) => {
             timestamps.shift();
         }
         if (timestamps.length >= CHAT_MAX_PER_WINDOW) {
-            const err = "Too many messages, slow down";
-            if (ack) ack({ ok: false, error: err });
-            socket.emit("server-error", err);
-            return;
+            return sendServerError(socket, ack, "Too many messages, slow down");
         }
         timestamps.push(now);
         socket._chatTimestamps = timestamps;

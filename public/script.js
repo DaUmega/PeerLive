@@ -3,6 +3,7 @@
 const $ = (id) => document.getElementById(id);
 const peers = new Map();
 const announcedStreams = new Map();
+const sharedFileIds = new Set();
 const rtcConfig = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -17,6 +18,7 @@ let owner = false;
 let localStream;
 let localVideo;
 let joining = false;
+let everJoined = false;
 let confirmation;
 let roomMemberCount = 0;
 
@@ -47,6 +49,16 @@ function addNotice(text) {
   const row = document.createElement("div");
   row.className = "message notice";
   row.textContent = text;
+  appendMessage(row);
+}
+
+function addFileMessage(fileId, name, size) {
+  const row = document.createElement("div");
+  row.className = "message";
+  const link = document.createElement("a");
+  link.href = `/download/${encodeURIComponent(fileId)}`;
+  link.textContent = `Download ${name} (${(size / 1024).toFixed(1)} KB)`;
+  row.appendChild(link);
   appendMessage(row);
 }
 
@@ -164,7 +176,7 @@ function createPeer(peerId) {
     makingOffer: false,
     needsNegotiation: false,
     ignoreOffer: false,
-    settingRemoteAnswer: false,
+    restarted: false,
     polite: socket.id > peerId
   };
   peers.set(peerId, peer);
@@ -183,12 +195,20 @@ function createPeer(peerId) {
     offerToWatch(peer, stream);
   };
   pc.onconnectionstatechange = () => {
-    if (["failed", "closed"].includes(pc.connectionState)) removePeer(peerId);
+    if (pc.connectionState === "connected") {
+      peer.restarted = false;
+    } else if (pc.connectionState === "failed") {
+      // try a single ICE restart before giving up - avoids killing the call on a transient blip
+      if (!peer.restarted) { peer.restarted = true; negotiate(peerId, peer, true); }
+      else removePeer(peerId);
+    } else if (pc.connectionState === "closed") {
+      removePeer(peerId);
+    }
   };
   return peer;
 }
 
-async function negotiate(peerId, peer) {
+async function negotiate(peerId, peer, iceRestart = false) {
   const { pc } = peer;
   if (peer.makingOffer || pc.signalingState !== "stable") {
     peer.needsNegotiation = true;
@@ -197,7 +217,7 @@ async function negotiate(peerId, peer) {
   peer.needsNegotiation = false;
   peer.makingOffer = true;
   try {
-    await pc.setLocalDescription(await pc.createOffer());
+    await pc.setLocalDescription(await pc.createOffer({ iceRestart }));
     socket.emit("signal", { roomId, target: peerId, data: { sdp: pc.localDescription } });
   } finally {
     peer.makingOffer = false;
@@ -216,7 +236,6 @@ async function handleSignal({ from, data }) {
     const offerCollision = data.sdp.type === "offer" && (peer.makingOffer || pc.signalingState !== "stable");
     peer.ignoreOffer = !peer.polite && offerCollision;
     if (peer.ignoreOffer) return;
-    peer.settingRemoteAnswer = data.sdp.type === "answer";
     if (offerCollision) {
       await Promise.all([
         pc.setLocalDescription({ type: "rollback" }),
@@ -225,7 +244,6 @@ async function handleSignal({ from, data }) {
     } else {
       await pc.setRemoteDescription(data.sdp);
     }
-    peer.settingRemoteAnswer = false;
     await Promise.all(peer.candidates.splice(0).map((candidate) => pc.addIceCandidate(candidate)));
     if (data.sdp.type === "offer") {
       await pc.setLocalDescription(await pc.createAnswer());
@@ -268,13 +286,19 @@ function failJoin(text) {
 function connect() {
   socket?.disconnect();
   setJoining(true);
+  everJoined = false;
   status("Connecting to the room server...");
   socket = io({ forceNew: true, transports: ["polling", "websocket"] });
   socket.on("connect", () => {
-    status("Joining room...");
+    status(everJoined ? "Reconnecting..." : "Joining room...");
     socket.timeout(10000).emit("join", { roomId, password, displayName: displayName() }, (error, result) => {
-      if (error) return failJoin("The room server did not respond. Check the invite link and try again.");
-      if (!result?.ok) return failJoin(`Could not join: ${result?.error || "unknown error"}`);
+      if (error || !result?.ok) {
+        const reason = error ? "The room server did not respond." : (result?.error || "unknown error");
+        if (!everJoined) return failJoin(`Could not join: ${reason}`);
+        status(`Reconnect failed (${reason}). Retrying...`);
+        return;
+      }
+      everJoined = true;
       setJoining(false);
       enterRoom();
       status("Connected. You can chat, share files, or start a camera stream.");
@@ -290,13 +314,8 @@ function connect() {
   socket.on("chat", ({ name, message, time }) => addMessage(name || "Guest", message, time));
   socket.on("file-shared", ({ fileId, name, size }) => {
     if (typeof fileId !== "string" || typeof name !== "string" || !Number.isFinite(size)) return;
-    const row = document.createElement("div");
-    row.className = "message";
-    const link = document.createElement("a");
-    link.href = `/download/${encodeURIComponent(fileId)}`;
-    link.textContent = `Download ${name} (${(size / 1024).toFixed(1)} KB)`;
-    row.appendChild(link);
-    appendMessage(row);
+    if (sharedFileIds.has(fileId)) return; // already shown locally when we uploaded it
+    addFileMessage(fileId, name, size);
   });
   socket.on("disconnect", (reason) => { if (!joining && reason !== "io client disconnect" && roomId) status("Disconnected from the room server."); });
 }
@@ -368,6 +387,8 @@ async function shareFile(file) {
     const response = await fetch(`/upload/${encodeURIComponent(roomId)}`, { method: "POST", body: form });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Upload failed.");
+    sharedFileIds.add(result.fileId);
+    addFileMessage(result.fileId, result.name ?? file.name, result.size ?? file.size);
     status("File shared. It expires in 30 minutes.");
   } catch (error) {
     status(error.message);
@@ -379,6 +400,7 @@ function resetRoom() {
   socket?.disconnect();
   socket = undefined;
   announcedStreams.clear();
+  sharedFileIds.clear();
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = undefined;
   localVideo?.remove();
@@ -386,6 +408,7 @@ function resetRoom() {
   roomId = password = undefined;
   owner = false;
   roomMemberCount = 0;
+  everJoined = false;
   setJoining(false);
   $("messages").replaceChildren();
   $("videos").replaceChildren();
