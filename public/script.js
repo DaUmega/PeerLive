@@ -33,7 +33,7 @@ function connect() {
 	socket?.disconnect();
 	setJoining(true);
 	status("Connecting to the room server...");
-	socket = io({ transports: ["websocket", "polling"] });
+	socket = io({ forceNew: true, transports: ["polling", "websocket"] });
 	socket.on("connect", () => {
 		status("Joining room...");
 		socket.timeout(10000).emit("join", { roomId, password, displayName: name() }, (error, result) => {
