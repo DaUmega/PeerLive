@@ -95,9 +95,9 @@ function enterRoom() {
 function removePeer(peerId) {
   const peer = peers.get(peerId);
   if (!peer) return;
-  peer.pc.close();
-  peer.streams.forEach((stream) => removeRemoteStream(peer, stream.id));
   peers.delete(peerId);
+  peer.streams.forEach((stream) => removeRemoteStream(peer, stream.id));
+  peer.pc.close();
   updatePeerCount();
 }
 
@@ -107,14 +107,25 @@ function updateWatchLabel(peer, streamId) {
 }
 
 function offerToWatch(peer, stream) {
-  if (peer.streams.has(stream.id)) return;
-  const entry = { id: stream.id, stream, name: peer.names.get(stream.id) || "Guest", watch: undefined, video: undefined, stop: undefined };
+  const pendingId = [...peer.streams.entries()].find(([, entry]) => !entry.stream)?.[0];
+  const streamId = peer.streams.has(stream.id) ? stream.id : pendingId || stream.id;
+  const entry = peer.streams.get(streamId) || createStreamEntry(peer, streamId);
+  if (entry.stream) return;
+  entry.stream = stream;
+  entry.watch.disabled = false;
+  entry.watch.textContent = `${entry.name} started streaming - Watch`;
+}
+
+function createStreamEntry(peer, streamId) {
+  const entry = { id: streamId, stream: undefined, name: peer.names.get(streamId) || "Guest", watch: undefined, video: undefined, stop: undefined };
   const watch = document.createElement("button");
   watch.className = "secondary";
   entry.watch = watch;
-  watch.textContent = `${entry.name} started streaming - Watch`;
+  watch.textContent = `${entry.name} is preparing their stream...`;
+  watch.disabled = true;
   watch.addEventListener("click", () => {
-    entry.video = addVideo(stream, entry.name, false);
+    if (!entry.stream) return;
+    entry.video = addVideo(entry.stream, entry.name, false);
     const stop = document.createElement("button");
     stop.className = "secondary";
     stop.textContent = `Stop watching ${entry.name}`;
@@ -129,8 +140,9 @@ function offerToWatch(peer, stream) {
     watch.hidden = true;
     $("streamNotices").appendChild(stop);
   });
-  peer.streams.set(stream.id, entry);
+  peer.streams.set(streamId, entry);
   $("streamNotices").appendChild(watch);
+  return entry;
 }
 
 function removeRemoteStream(peer, streamId) {
@@ -235,11 +247,10 @@ function handleStreamEvent({ from, name, streamId, type }) {
     announcements.set(streamId, name || "Guest");
     if (!peer) return addNotice(`${name || "Guest"} started streaming.`);
     peer.names.set(streamId, name || "Guest");
-    const entry = peer.streams.get(streamId);
-    if (entry) {
-      entry.name = name || "Guest";
-      updateWatchLabel(peer, streamId);
-    }
+    const entry = peer.streams.get(streamId) || createStreamEntry(peer, streamId);
+    entry.name = name || "Guest";
+    if (entry.stream) updateWatchLabel(peer, streamId);
+    else entry.watch.textContent = `${entry.name} is preparing their stream...`;
     addNotice(`${name || "Guest"} started streaming.`);
   } else {
     announcements.delete(streamId);
@@ -278,6 +289,7 @@ function connect() {
   socket.on("stream-event", handleStreamEvent);
   socket.on("chat", ({ name, message, time }) => addMessage(name || "Guest", message, time));
   socket.on("file-shared", ({ fileId, name, size }) => {
+    if (typeof fileId !== "string" || typeof name !== "string" || !Number.isFinite(size)) return;
     const row = document.createElement("div");
     row.className = "message";
     const link = document.createElement("a");

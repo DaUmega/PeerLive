@@ -274,15 +274,13 @@ io.on("connection", (socket) => {
             return;
         }
 
-        // Register client and let both sides establish a direct WebRTC connection.
-        const existingPeerIds = Array.from(room.clients.keys());
+        // Register the client. Existing members initiate connections to newcomers.
         room.clients.set(socket.id, ip);
         // store sanitized display name (fallback to socket id truncated)
         const sname = sanitizeName(displayName) || socket.id;
         room.names.set(socket.id, sname);
 
         socket.join(roomId);
-        existingPeerIds.forEach((peerId) => socket.emit("peer-joined", peerId));
         socket.to(roomId).emit("peer-joined", socket.id);
         emitRoomPresence(roomId);
 
