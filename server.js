@@ -177,6 +177,7 @@ app.post("/create/:roomId", createLimiter, async (req, res) => {
             passwordHash,
             clients: new Map(), // socketId -> IP
             names: new Map(),   // socketId -> displayName
+            streams: new Map(), // streamId -> { socketId, name }
             createdAt: Date.now()
         };
         return res.json({ success: true, roomId });
@@ -277,6 +278,10 @@ io.on("connection", (socket) => {
         socket.join(roomId);
         socket.to(roomId).emit("peer-joined", socket.id);
 
+        for (const [streamId, stream] of room.streams) {
+            socket.emit("stream-event", { from: stream.socketId, name: stream.name, streamId, type: "stream-start" });
+        }
+
         if (ack) ack({ ok: true, roomId });
     });
 
@@ -289,6 +294,23 @@ io.on("connection", (socket) => {
         } else {
             socket.to(roomId).emit("signal", { from: socket.id, data });
         }
+    });
+
+    socket.on("stream-event", ({ roomId, type, streamId } = {}) => {
+        const room = rooms[roomId];
+        if (!room || !room.clients.has(socket.id)) return;
+        if (!["stream-start", "stream-stop"].includes(type) || typeof streamId !== "string") return;
+        if (type === "stream-start") {
+            room.streams.set(streamId, { socketId: socket.id, name: room.names.get(socket.id) || socket.id });
+        } else {
+            room.streams.delete(streamId);
+        }
+        socket.to(roomId).emit("stream-event", {
+            from: socket.id,
+            name: room.names.get(socket.id) || socket.id,
+            streamId,
+            type
+        });
     });
 
     // Chat handler: sanitized, length-restricted, basic rate limiting
@@ -349,6 +371,12 @@ io.on("connection", (socket) => {
             if (rooms[roomId].clients.has(socket.id)) {
                 rooms[roomId].clients.delete(socket.id);
                 rooms[roomId].names.delete(socket.id);
+                for (const [streamId, stream] of rooms[roomId].streams) {
+                    if (stream.socketId === socket.id) {
+                        rooms[roomId].streams.delete(streamId);
+                        socket.to(roomId).emit("stream-event", { from: socket.id, name: stream.name, streamId, type: "stream-stop" });
+                    }
+                }
                 socket.to(roomId).emit("peer-left", socket.id);
                 if (rooms[roomId].clients.size === 0) {
                     setTimeout(() => {
