@@ -1,6 +1,6 @@
-# PeerLive
+# P2P Chat
 
-PeerLive is a **peer-to-peer, encrypted camera web app** that allows users to set up a webcam as a live-streaming camera, with **real-time chat and customizable display names**. Stream and communicate securely without storing any video or chat data on a server, ensuring privacy and direct peer-to-peer interaction.
+P2P Chat is a **peer-to-peer, password-protected room app** for browser-to-browser calls, real-time chat, and temporary file sharing. Rooms, signaling, and short-lived shared files are managed by the self-hosted server; media streams remain direct between browsers whenever the network permits.
 
 ---
 

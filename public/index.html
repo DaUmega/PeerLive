@@ -1,89 +1,19 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>PeerLive</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-    <button id="exitStreamBtn" class="exit-btn hidden">Exit</button>
-    <button id="switchCameraBtn" class="switchcam-btn" style="display:none;">Switch</button>
-    
-    <div id="welcomeView" class="view">
-        <header>
-            <h1>PeerLive</h1>
-            <p class="tagline">Encrypted peer-to-peer streaming</p>
-        </header>
-
-        <div class="modal">
-            <div class="form-group">
-                <label for="roomId">Room ID</label>
-                <input type="text" id="roomId" placeholder="Enter room ID">
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Enter password">
-            </div>
-
-            <div class="form-group">
-                <label for="displayName">Display Name (optional)</label>
-                <input type="text" id="displayName" placeholder="Your name" maxlength="32">
-            </div>
-
-            <div class="btn-group">
-                <button id="createBtn" class="btn">Create Room</button>
-                <button id="joinBtn" class="btn">Join Room</button>
-            </div>
-
-            <button id="startCameraBtn" class="btn btn-accent" style="display:none;">Start Camera</button>
-            <button id="copyUrlBtn" class="btn btn-accent" style="display:none;">Copy Room URL</button>
-
-            <div id="status" class="status"></div>
-        </div>
-
-        <button id="goBackBtn" class="btn-back">← Back</button>
-    </div>
-
-    <div id="streamView" class="view hidden">
-        <div class="stream-layout">
-            <div class="video-section">
-                <div class="video-stack">
-                    <div id="remoteWrapper" class="video-wrapper">
-                        <video id="remoteVideo" autoplay playsinline></video>
-                    </div>
-                    <div id="localWrapper" class="video-wrapper pip">
-                        <video id="localVideo" autoplay muted playsinline></video>
-                    </div>
-                </div>
-            </div>
-
-            <aside class="sidebar">
-                <div class="sidebar-header">
-                    <h2>Chat</h2>
-                </div>
-
-                <div id="chatMessages" class="chat-messages" role="log"></div>
-
-                <div id="chatFileShare" class="file-share" style="display:none;">
-                    <input type="file" id="fileInput">
-                    <button id="uploadBtn" disabled>Upload</button>
-                    <div id="sharedFiles" class="shared-files"></div>
-                </div>
-
-                <div class="chat-input-area">
-                    <input id="chatInput" class="chat-input" type="text" placeholder="Type a message..." maxlength="500">
-                    <button id="chatSendBtn" class="btn-send">Send</button>
-                </div>
-            </aside>
-        </div>
-    </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>P2P Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css">
+</head><body>
+  <header class="page-header"><a class="back" href="https://daumega.github.io/">&larr; Back</a><h1>P2P Chat</h1><p class="sub">Private browser-to-browser chat, calls, and file sharing. Rooms disappear when everyone leaves.</p></header>
+  <main><p id="status" class="status">Choose how you want to connect.</p>
+    <section id="confirm" class="confirm" hidden><p id="confirmText"></p><button id="confirmYes">Leave room</button><button id="confirmNo" class="secondary">Stay</button></section>
+    <div class="identity"><label for="displayName">Your name</label><input id="displayName" maxlength="32" autocomplete="nickname" placeholder="Guest"></div>
+    <section id="start" class="start"><button id="showCreate">Create a room</button><button id="showJoin" class="secondary">Join a room</button></section>
+    <section id="setup" class="setup" hidden>
+      <div id="createPanel" class="panel" hidden><h2>Invite someone</h2><p>Create a password-protected room, then share its invite link. Your password stays on your device.</p><label for="roomName">Room name</label><input id="roomName" maxlength="64" placeholder="e.g. Friday catch-up"><label for="roomPassword">Room password</label><input id="roomPassword" type="password" autocomplete="new-password" placeholder="Choose a password"><button id="createRoom">Create room</button><div id="inviteDetails" hidden><label for="inviteUrl">Invite link</label><textarea id="inviteUrl" readonly></textarea><button id="copyInvite" class="secondary">Copy invite link</button></div></div>
+      <div id="joinPanel" class="panel" hidden><h2>Join a room</h2><p>Open an invite link or enter the room code you received. Ask the room owner for the password.</p><label for="joinRoomId">Room code</label><input id="joinRoomId" maxlength="64" placeholder="Paste the room code"><label for="joinPassword">Room password</label><input id="joinPassword" type="password" autocomplete="current-password" placeholder="Enter the password"><button id="joinRoom">Join room</button></div>
+    </section>
+    <section id="room" class="room" hidden><div class="room-bar"><span id="peers">0 guests connected</span><button id="copyRoomInvite" class="secondary">Copy invite</button><button id="shareFile" class="secondary">Share file</button><input id="fileInput" type="file" hidden><button id="cameraBtn" class="secondary">Enable camera</button><button id="leaveRoom" class="secondary">Leave room</button></div><div id="videos" class="videos"></div><div id="messages" class="messages" aria-live="polite"></div><form id="messageForm" class="message-form"><input id="messageInput" maxlength="500" placeholder="Write a message" aria-label="Message"><button>Send</button></form></section>
+  </main><script src="/socket.io/socket.io.js"></script><script src="script.js"></script>
+</body></html>
